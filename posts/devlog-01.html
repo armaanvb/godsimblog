@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GodSim — Devlog 01: Building a World That Runs Itself</title>
+<link rel="stylesheet" href="../style.css">
+<style>
+body { animation: fadein 0.5s ease both; }
+@keyframes fadein {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  body { animation: none; }
+}
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" onclick="(function(){const r=document.documentElement;const t=r.getAttribute('data-theme');r.setAttribute('data-theme',t==='dark'?'light':t==='light'?'dark':window.matchMedia('(prefers-color-scheme:dark)').matches?'light':'dark');this.textContent=r.getAttribute('data-theme')==='dark'?'Light':'Dark'}).call(this)" aria-label="Toggle theme">Light</button>
+
+<nav class="site-nav">
+  <div class="site-nav-inner">
+    <a href="../index.html" class="site-nav-logo">GodSim Devlog</a>
+    <ul class="site-nav-links">
+      <li><a href="../index.html">All Posts</a></li>
+      <li><a href="https://github.com/armaanvb/godsimblog">GitHub</a></li>
+    </ul>
+  </div>
+</nav>
+
+<header class="post-header">
+  <div class="post-header-inner">
+    <div class="log-eyebrow">
+      LOG_001 · DEVLOG <span>·</span> GodSim <span>·</span> July 2026
+    </div>
+    <h1 class="post-title">Building a World<br>That Runs Itself</h1>
+    <p class="post-subtitle">On emergence, world-building tools, and the first milestone of an AI god game</p>
+    <div class="post-meta">
+      <span class="meta-pill active">Devlog #1</span>
+      <span class="meta-pill">World Layer</span>
+      <span class="meta-pill">Unreal Engine 5</span>
+      <span class="meta-pill">~8 min read</span>
+    </div>
+  </div>
+</header>
+
+<div class="post-intro">
+  <p class="lead">GodSim is a simulation where nothing is scripted. A tribe of people — identical at the start — are placed into a world with food, shelter, a gathering place. Then time passes.</p>
+
+  <p>No one is assigned a role. A unit becomes a forager because it spent its early hours near resource nodes, which nudged its behavior weights, which made it more likely to forage again. An elder emerges not because the game decided there should be one, but because a specific unit spent time at the town center, built social bonds, and now carries information others seek out. Factions form around nothing more than proximity and shared history.</p>
+
+  <p>Alongside all of this is an AI — not controlling the units, but watching. An LLM (starting with Claude, designed to be swappable) reads the state of the simulation every few seconds. It can answer questions, notice patterns before you do, or intervene if you ask it to. Think less "AI plays the game" and more "an entity exists in the same world you're observing."</p>
+
+  <p>No objectives. No win state. The goal is to watch emergence happen.</p>
+
+  <p>Before any of that can exist, there has to be a world. This post is about building the stage.</p>
+</div>
+
+<main class="post-body">
+
+  <section class="post-section">
+    <div class="section-eyebrow">01 · World Authoring</div>
+    <h2 class="section-heading">Painting a World in 10 Seconds</h2>
+
+    <p>The biome map is a small PNG image — a few hundred pixels wide. Yellow pixels become Plains. Green becomes Forest. Red becomes Mountain. Blue becomes Water. I painted it in a pixel editor in about a minute. The engine reads it directly, and one pixel becomes one tile in the world.</p>
+
+    <p>The appeal of this over procedural generation: I can hand-sculpt the world's shape. I know where I want the water, where I want mountains to create natural borders, where I want open plains for foragers to roam. The simulation handles everything else — but the world's geography is intentional. Changing the world is as simple as repainting a few pixels and pressing a button in the editor.</p>
+
+    <div class="media-block">
+      <div class="media-placeholder wide">
+        <div class="ph-icon">🗺</div>
+        <div class="ph-label">
+          <strong>Biome Map Image</strong>
+          The PNG painted in a pixel editor — yellow plains, green forest, red mountain, blue water
+        </div>
+      </div>
+      <p class="media-caption">[ Replace with screenshot of the biome map PNG ]</p>
+    </div>
+
+    <details>
+      <summary>How the texture parsing works</summary>
+      <div class="details-inner">
+        <p>The <code>ASimWorldGrid</code> actor holds a reference to a <code>UTexture2D</code>. The texture must use <code>CompressionSettings = TC_UserInterface2D</code> and <code>MipGenSettings = NoMipmaps</code> — this preserves exact pixel values without compression or mip blending.</p>
+        <p>At generation time, the actor locks the texture's bulk data and reads each pixel as an <code>FColor</code> (BGRA). A configurable <code>TMap&lt;FColor, EBiomeType&gt;</code> maps pixel colors to biome types — this lives in the Details panel so any designer can remap colors without touching code. Alpha is normalized to 255 before the lookup so the source image's alpha channel doesn't matter.</p>
+        <pre><span class="c">// Lock read-only, iterate pixels</span>
+<span class="k">const</span> FColor* Pixels = <span class="k">static_cast</span>&lt;<span class="k">const</span> FColor*&gt;(Mip.BulkData.LockReadOnly());
+<span class="k">for</span> (<span class="k">int32</span> y = 0; y &lt; GridHeight; ++y) {
+    <span class="k">for</span> (<span class="k">int32</span> x = 0; x &lt; GridWidth; ++x) {
+        FColor Pixel = Pixels[y * GridWidth + x];
+        Pixel.A = 255; <span class="c">// normalize alpha</span>
+        <span class="k">const</span> EBiomeType* Found = BiomeColorMap.Find(Pixel);
+        Tiles[y * GridWidth + x].Biome = Found ? *Found : EBiomeType::Plains;
+    }
+}
+Mip.BulkData.Unlock();</pre>
+        <p>Grid width and height come directly from the texture's mip dimensions — so the image size defines the world size, with no separate configuration needed.</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="post-section">
+    <div class="section-eyebrow">02 · World Structure</div>
+    <h2 class="section-heading">Connected Regions: Each Lake Is Its Own Actor</h2>
+
+    <p>After the image is parsed into a tile array, a flood fill algorithm runs across it. It finds every connected group of same-biome tiles — "connected" meaning touching on four sides, not diagonally — and treats each group as a single region.</p>
+
+    <p>A lake isn't just a collection of blue pixels. It becomes a <strong>Region actor</strong> placed at the centroid of its tiles. So does each forest, each mountain range. Each region knows its tile count, derives a resource cap proportional to its size, spawns resource nodes (berries in plains, timber in forests, ore in mountains), and manages a regeneration timer. When a resource depletes, the region notices and regrows one after a configurable interval. The game mode doesn't micromanage any of this — the regions run themselves.</p>
+
+    <p>Water regions do something else: at runtime, they register a navigation obstacle covering their tile footprint, so unit pathfinding treats water as impassable. No movement code changes — the world wires itself up.</p>
+
+    <div class="media-block">
+      <div class="media-placeholder tall">
+        <div class="ph-icon">🌍</div>
+        <div class="ph-label">
+          <strong>Generated World</strong>
+          The world after generation — regions visible in the World Outliner, floor mesh colored by biome
+        </div>
+      </div>
+      <p class="media-caption">[ Replace with screenshot or short clip of the generated world ]</p>
+    </div>
+
+    <details>
+      <summary>Flood fill + region lifecycle</summary>
+      <div class="details-inner">
+        <p>The flood fill is a standard iterative DFS using an explicit stack — no recursion to avoid stack overflows on large grids. Each tile is visited once. Connected same-biome tiles accumulate into a list, then get handed to <code>SpawnRegion()</code>.</p>
+        <pre><span class="c">// Iterative DFS flood fill</span>
+TArray&lt;bool&gt; Visited; Visited.SetNumZeroed(Tiles.Num());
+<span class="k">for</span> (<span class="k">int32</span> StartIdx = 0; StartIdx &lt; Tiles.Num(); ++StartIdx) {
+    <span class="k">if</span> (Visited[StartIdx]) <span class="k">continue</span>;
+    EBiomeType BiomeType = Tiles[StartIdx].Biome;
+    TArray&lt;FIntPoint&gt; RegionTiles;
+    TArray&lt;<span class="k">int32</span>&gt; Stack; Stack.Add(StartIdx);
+    Visited[StartIdx] = true;
+    <span class="k">while</span> (Stack.Num() &gt; 0) {
+        <span class="k">const</span> FIntPoint Tile = IndexToTile(Stack.Pop());
+        RegionTiles.Add(Tile);
+        <span class="c">// check 4 neighbors, push unvisited same-biome tiles</span>
+    }
+    SpawnRegion(BiomeType, RegionTiles);
+}</pre>
+        <p>Each <code>ASimBiomeRegion</code> receives its tile list and resource cap (= <code>TileCount × ResourcesPerTile</code>, configurable per biome in a data asset). Water regions set up a hidden <code>UBoxComponent</code> sized to their tile footprint with a <code>UNavModifierComponent</code> set to <code>NavArea_Null</code>. This is why water blocking works without any special code in the movement system: the NavMesh simply has no traversable surface over water tiles.</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="post-section">
+    <div class="section-eyebrow">03 · Rendering</div>
+    <h2 class="section-heading">Materials That Don't Show the Grid</h2>
+
+    <p>The first version of the floor used vertex colors — each tile colored by its biome type. It was fast to implement and immediately obvious it was wrong. Every tile was a visible square. Water looked like hundreds of individual puddles.</p>
+
+    <div class="pull-quote">
+      "Water looked like hundreds of individual puddles. Each one perfectly grid-aligned."
+    </div>
+
+    <p>The fix was two things working together. First: instead of one mesh section with all tiles sharing a material, the floor is split into one section per biome type. Each section gets its own material — a water material, a grass material, a rock material. You can author those however you like in the editor.</p>
+
+    <p>Second: world-space UV coordinates. With per-tile UVs (0→1 per tile), the material texture restarts at every tile boundary, which is what makes the grid visible. With world-space UVs, coordinates are derived from the vertex's actual position divided by a configurable scale. The UVs flow continuously across the entire region. A water material now samples coordinates as if the ocean is one surface. No tile edges appear in the output. A single <code>FloorUVScale</code> parameter on the grid actor controls how large the texture appears relative to the tiles.</p>
+
+    <div class="media-block">
+      <div class="media-placeholder wide">
+        <div class="ph-icon">🎨</div>
+        <div class="ph-label">
+          <strong>Before / After</strong>
+          Vertex colors (blocky, grid visible) vs. per-biome materials with world-space UVs (seamless)
+        </div>
+      </div>
+      <p class="media-caption">[ Replace with before/after comparison screenshot ]</p>
+    </div>
+
+    <details>
+      <summary>UV math and mesh section per biome</summary>
+      <div class="details-inner">
+        <p>During <code>GenerateFloor()</code>, tiles are grouped by biome type into a <code>TMap&lt;EBiomeType, TArray&lt;int32&gt;&gt;</code>. Each group becomes one <code>CreateMeshSection</code> call on the <code>UProceduralMeshComponent</code>, and each section gets its material assigned via <code>SetMaterial(SectionIndex, BiomeMaterials[Biome])</code>.</p>
+        <p>The UV for each vertex corner is just the vertex's local-space X/Y position divided by a scale divisor:</p>
+        <pre><span class="k">const float</span> UVDivisor = TileSize * FloorUVScale; <span class="c">// e.g. 1500 × 4.0 = 6000</span>
+
+<span class="c">// For tile at grid position (x, y):</span>
+<span class="k">const float</span> L = x * TileSize;
+<span class="k">const float</span> R = (x + 1) * TileSize;
+<span class="k">const float</span> B = y * TileSize;
+<span class="k">const float</span> T = (y + 1) * TileSize;
+
+UVs.Add(FVector2D(L / UVDivisor, B / UVDivisor));
+UVs.Add(FVector2D(R / UVDivisor, B / UVDivisor));
+UVs.Add(FVector2D(R / UVDivisor, T / UVDivisor));
+UVs.Add(FVector2D(L / UVDivisor, T / UVDivisor));</pre>
+        <p>Because adjacent tiles share the same formula, the UV at the right edge of tile N equals the UV at the left edge of tile N+1. No discontinuity, no seam.</p>
+        <p>One note on NavMesh: <code>UProceduralMeshComponent</code> only creates complex (per-triangle) collision, which NavMesh recast ignores — it only queries simple collision shapes. The floor includes a hidden <code>UBoxComponent</code> spanning the full grid to give the NavMesh something to project onto.</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="post-section">
+    <div class="section-eyebrow">04 · Visual Dressing</div>
+    <h2 class="section-heading">Filling the World</h2>
+
+    <p>Materials make the biomes readable. Decorations make them feel real. Each biome type has a configurable decoration table — a list of meshes or Blueprint actors, each with a density (probability per tile), scale variance, random yaw, and position jitter. The world grid iterates every tile at generation time and rolls against each entry.</p>
+
+    <p>Static mesh decorations — trees, rocks, grass clumps — use GPU instancing: one draw call per unique mesh regardless of how many instances exist. A dense forest with thousands of trees costs the same as a handful. Blueprint actor decorations are spawned individually for cases where something needs logic or animation.</p>
+
+    <p>One checkbox per decoration entry controls whether instances generate collision. Trees and boulders block movement; grass and flowers don't. This keeps physics overhead minimal without needing separate mesh variants.</p>
+
+    <div class="media-block">
+      <div class="media-placeholder tall">
+        <div class="ph-icon">🌲</div>
+        <div class="ph-label">
+          <strong>Decorated World</strong>
+          The world after running Generate Decorations — trees, rocks, and ground cover placed per biome
+        </div>
+      </div>
+      <p class="media-caption">[ Replace with screenshot of the fully decorated world ]</p>
+    </div>
+
+    <details>
+      <summary>GPU instancing and the ISM cache</summary>
+      <div class="details-inner">
+        <p>Each unique static mesh asset gets exactly one <code>UInstancedStaticMeshComponent</code> (ISM), created on demand and stored as a component on the grid actor — not as a separate world actor. This keeps the World Outliner clean.</p>
+        <p>The cache is keyed on <code>(UStaticMesh*, bool bCollision)</code> — two separate maps, one for collision-enabled instances and one without. The same mesh can appear in multiple biome tables with different collision settings and still get separate ISM components:</p>
+        <pre><span class="c">// Two caches: one per collision setting</span>
+TMap&lt;UStaticMesh*, UInstancedStaticMeshComponent*&gt; ISMCacheNoCollision;
+TMap&lt;UStaticMesh*, UInstancedStaticMeshComponent*&gt; ISMCacheCollision;
+
+<span class="k">auto</span> GetOrCreateISM = [&amp;](UStaticMesh* Mesh, bool bCollision) {
+    <span class="k">auto</span>&amp; Cache = bCollision ? ISMCacheCollision : ISMCacheNoCollision;
+    <span class="k">auto</span>&amp; ISM = Cache.FindOrAdd(Mesh);
+    <span class="k">if</span> (!ISM) {
+        ISM = NewObject&lt;UInstancedStaticMeshComponent&gt;(this);
+        ISM-&gt;SetStaticMesh(Mesh);
+        ISM-&gt;SetCollisionEnabled(bCollision
+            ? ECollisionEnabled::QueryAndPhysics
+            : ECollisionEnabled::NoCollision);
+        ISM-&gt;RegisterComponent();
+        ISM-&gt;AttachToComponent(RootComponent, ...);
+        DecorationISMs.Add(ISM);
+    }
+    <span class="k">return</span> ISM;
+};</pre>
+        <p>Blueprint actor decorations are spawned via <code>SpawnActor</code> and tracked in a separate <code>DecorationActors</code> array. Both are destroyed by <code>ClearDecorations()</code>, which is always called before <code>ClearGenerated()</code>.</p>
+      </div>
+    </details>
+  </section>
+
+  <div class="whats-next">
+    <div class="section-eyebrow">What's Next</div>
+    <h2 class="section-heading">Putting People In It</h2>
+    <p>The world exists. The next milestone is the survival loop: hunger, energy, health. Units that forage, sleep, rest, and die if left long enough without food. The decision system is a utility AI — every possible action gets a float score based on current stats and personality traits, and the highest scorer wins. Two units with identical hunger but different personalities will make different choices. That difference, repeated across 30 units over hours of simulation time, is where emergence starts to happen.</p>
+  </div>
+
+</main>
+
+<div class="milestone-section">
+  <div class="milestone-label">Series roadmap</div>
+  <div class="milestone-track">
+    <div class="milestone-step done current">
+      <div class="milestone-dot"></div>
+      <div class="milestone-name">World<br>Layer</div>
+    </div>
+    <div class="milestone-step">
+      <div class="milestone-dot"></div>
+      <div class="milestone-name">Survival<br>Loop</div>
+    </div>
+    <div class="milestone-step">
+      <div class="milestone-dot"></div>
+      <div class="milestone-name">LLM<br>Oracle</div>
+    </div>
+    <div class="milestone-step">
+      <div class="milestone-dot"></div>
+      <div class="milestone-name">Social<br>Fabric</div>
+    </div>
+    <div class="milestone-step">
+      <div class="milestone-dot"></div>
+      <div class="milestone-name">Deep<br>Emergence</div>
+    </div>
+  </div>
+</div>
+
+<footer class="post-footer">
+  <div class="footer-links">
+    <a href="../index.html" class="footer-link">← All posts</a>
+    <a href="https://github.com/armaanvb" class="footer-link">GitHub</a>
+  </div>
+</footer>
+
+</body>
+</html>

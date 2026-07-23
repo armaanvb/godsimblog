@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GodSim Devlog</title>
+<link rel="stylesheet" href="style.css">
+<style>
+body { animation: fadein 0.4s ease both; }
+@keyframes fadein {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) { body { animation: none; } }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" onclick="(function(){const r=document.documentElement;const t=r.getAttribute('data-theme');r.setAttribute('data-theme',t==='dark'?'light':t==='light'?'dark':window.matchMedia('(prefers-color-scheme:dark)').matches?'light':'dark');this.textContent=r.getAttribute('data-theme')==='dark'?'Light':'Dark'}).call(this)" aria-label="Toggle theme">Light</button>
+
+<nav class="site-nav">
+  <div class="site-nav-inner">
+    <a href="index.html" class="site-nav-logo">GodSim Devlog</a>
+    <ul class="site-nav-links">
+      <li><a href="index.html">All Posts</a></li>
+      <li><a href="https://github.com/armaanvb/godsimblog">GitHub</a></li>
+    </ul>
+  </div>
+</nav>
+
+<header class="index-header">
+  <div class="index-header-inner">
+    <div class="log-eyebrow">
+      Development Log <span>·</span> GodSim
+    </div>
+    <h1 class="index-title">GodSim Devlog</h1>
+    <p class="index-description">Building an emergent-behavior simulation: a tribe of people, no scripts, and an LLM watching over it all. Documented as it happens.</p>
+  </div>
+</header>
+
+<main class="index-body">
+  <nav class="post-list" aria-label="Post listing">
+
+    <a href="posts/devlog-01.html" class="post-list-item">
+      <div class="post-list-num">LOG_001<br>Jul 2026</div>
+      <div>
+        <div class="post-list-title">Building a World That Runs Itself</div>
+        <p class="post-list-summary">Painting biomes in a pixel editor, flood-filling connected regions into self-managing actors, fixing tile-grid seams with world-space UVs, and wiring up NavMesh without touching any movement code.</p>
+        <div class="post-list-tags">
+          <span class="post-tag">World Layer</span>
+          <span class="post-tag">Unreal Engine 5</span>
+          <span class="post-tag">~8 min</span>
+        </div>
+      </div>
+    </a>
+
+  </nav>
+</main>
+
+<footer class="post-footer">
+  <div class="footer-links">
+    <a href="https://github.com/armaanvb/godsimblog" class="footer-link">GitHub</a>
+    <a href="https://github.com/armaanvb" class="footer-link">armaanvb</a>
+  </div>
+</footer>
+
+</body>
+</html>
