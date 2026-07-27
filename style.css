@@ -152,6 +152,9 @@ body {
 }
 
 .site-nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
   font-family: 'Courier New', Courier, monospace;
   font-size: 0.75rem;
   letter-spacing: 0.18em;
@@ -161,7 +164,9 @@ body {
   flex-shrink: 0;
 }
 
+.site-nav-logo svg { display: block; flex-shrink: 0; }
 .site-nav-logo:hover { color: var(--gold-dim); }
+.site-nav-logo:hover svg path { stroke: var(--gold-dim); }
 
 .site-nav-links {
   display: flex;
@@ -394,6 +399,40 @@ code {
   color: var(--text-dim);
   margin-top: 0.625rem;
   padding-left: 0.25rem;
+}
+
+/* ── Real screenshots ────────────────────────────────────────────────── */
+
+.media-image {
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--ph-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.media-image img { display: block; max-width: 100%; height: auto; }
+.media-image.pixel img { image-rendering: pixelated; width: 220px; max-width: 100%; }
+
+.media-note-title {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--teal);
+  margin-bottom: 0.5rem;
+}
+
+.media-note-title::before { content: '↓ '; color: var(--text-dim); }
+
+.media-note {
+  font-size: 0.9375rem;
+  color: var(--text-dim);
+  line-height: 1.65;
+  max-width: 60ch;
 }
 
 /* ── Expandable tech sections ────────────────────────────────────────── */

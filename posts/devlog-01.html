@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GodSim — Devlog 01: Building a World That Runs Itself</title>
 <link rel="stylesheet" href="../style.css">
+<link rel="icon" type="image/svg+xml" href="../assets/images/logo-icon.svg">
 <style>
 body { animation: fadein 0.5s ease both; }
 @keyframes fadein {
@@ -22,10 +23,18 @@ body { animation: fadein 0.5s ease both; }
 
 <nav class="site-nav">
   <div class="site-nav-inner">
-    <a href="../index.html" class="site-nav-logo">GodSim Devlog</a>
+    <a href="../index.html" class="site-nav-logo">
+      <svg width="22" height="22" viewBox="0 0 100 100" aria-hidden="true">
+        <path d="M8,50 Q50,10 92,50 Q50,90 8,50 Z" fill="none" stroke="var(--gold)" stroke-width="6" stroke-linejoin="round"/>
+        <circle cx="50" cy="50" r="13" fill="var(--teal)"/>
+        <line x1="50" y1="37" x2="50" y2="63" stroke="var(--bg-header)" stroke-width="3"/>
+        <line x1="37" y1="50" x2="63" y2="50" stroke="var(--bg-header)" stroke-width="3"/>
+        <circle cx="50" cy="50" r="4" fill="var(--gold)"/>
+      </svg>
+      GodSim Devlog
+    </a>
     <ul class="site-nav-links">
       <li><a href="../index.html">All Posts</a></li>
-      <li><a href="https://github.com/armaanvb/godsimblog">GitHub</a></li>
     </ul>
   </div>
 </nav>
@@ -41,7 +50,6 @@ body { animation: fadein 0.5s ease both; }
       <span class="meta-pill active">Devlog #1</span>
       <span class="meta-pill">World Layer</span>
       <span class="meta-pill">Unreal Engine 5</span>
-      <span class="meta-pill">~8 min read</span>
     </div>
   </div>
 </header>
@@ -62,21 +70,42 @@ body { animation: fadein 0.5s ease both; }
 
   <section class="post-section">
     <div class="section-eyebrow">01 · World Authoring</div>
-    <h2 class="section-heading">Painting a World in 10 Seconds</h2>
+    <h2 class="section-heading">Painting a World in seconds</h2>
 
     <p>The biome map is a small PNG image — a few hundred pixels wide. Yellow pixels become Plains. Green becomes Forest. Red becomes Mountain. Blue becomes Water. I painted it in a pixel editor in about a minute. The engine reads it directly, and one pixel becomes one tile in the world.</p>
 
     <p>The appeal of this over procedural generation: I can hand-sculpt the world's shape. I know where I want the water, where I want mountains to create natural borders, where I want open plains for foragers to roam. The simulation handles everything else — but the world's geography is intentional. Changing the world is as simple as repainting a few pixels and pressing a button in the editor.</p>
 
     <div class="media-block">
-      <div class="media-placeholder wide">
-        <div class="ph-icon">🗺</div>
-        <div class="ph-label">
-          <strong>Biome Map Image</strong>
-          The PNG painted in a pixel editor — yellow plains, green forest, red mountain, blue water
-        </div>
+      <div class="media-note-title">The Source Image</div>
+      <div class="media-image pixel">
+        <img src="../assets/images/PixelDrawing.png" alt="The hand-painted biome map: yellow plains, a green forest border, a red mountain corner, and a blue lake with a river trailing off it">
       </div>
-      <p class="media-caption">[ Replace with screenshot of the biome map PNG ]</p>
+      <p class="media-note">This is the actual file — a few hundred pixels, four flat colors, painted free-hand in a couple minutes. The lake and its river are just a blob and a squiggle; forest hugs two edges for cover, and a corner of mountain sits top-right as a natural border. Nothing here was generated.</p>
+    </div>
+
+    <div class="media-block">
+      <div class="media-note-title">Color → Biome</div>
+      <div class="media-image">
+        <img src="../assets/images/BiomeColorMap.png" alt="The BiomeColorMap details panel on the DA_BiomeConfig asset, mapping yellow to Plains, green to Forest, red to Mountain, and blue to Water">
+      </div>
+      <p class="media-note">This map lives on the <code>DA_BiomeConfig</code> data asset and is the exact lookup table the texture parser checks pixel-by-pixel. Yellow resolves to Plains, green to Forest, red to Mountain, blue to Water. Add an entry, and a fifth color is a new biome — no code change.</p>
+    </div>
+
+    <div class="media-block">
+      <div class="media-note-title">Biome → Material</div>
+      <div class="media-image">
+        <img src="../assets/images/BiomeMaterials.png" alt="The BiomeMaterials details panel on the grid actor, assigning M_Plains, M_Forest, M_Mountain, and MI_WaterRiver1 to each biome type">
+      </div>
+      <p class="media-note">A second, independent map on the grid actor — one material per biome, assigned by name. Swapping <code>MI_WaterRiver1</code> for a different water material changes every lake and river in the world at once, since they're all reading from the same table.</p>
+    </div>
+
+    <div class="media-block">
+      <div class="media-note-title">The Result</div>
+      <div class="media-image">
+        <img src="../assets/images/GeneratedFloor.png" alt="The generated floor mesh, showing the same lake, river, forest border, and mountain corner as the source pixel drawing, now rendered with real materials">
+      </div>
+      <p class="media-note">Same lake, same river, same corner of mountain — now a textured floor mesh, built from the same PNG in the same button press. Line this up against the source image above: the geometry and the color choices both trace back to that one small file.</p>
     </div>
 
     <details>
@@ -111,14 +140,19 @@ Mip.BulkData.Unlock();</pre>
     <p>Water regions do something else: at runtime, they register a navigation obstacle covering their tile footprint, so unit pathfinding treats water as impassable. No movement code changes — the world wires itself up.</p>
 
     <div class="media-block">
-      <div class="media-placeholder tall">
-        <div class="ph-icon">🌍</div>
-        <div class="ph-label">
-          <strong>Generated World</strong>
-          The world after generation — regions visible in the World Outliner, floor mesh colored by biome
-        </div>
+      <div class="media-note-title">Per-Biome Properties</div>
+      <div class="media-image">
+        <img src="../assets/images/BiomeConfig.png" alt="The Biomes map on the config data asset, showing Resources Per Tile, Regrowth Interval Seconds, Spawn Table, and Decorations set independently for Plains, Forest, Mountain, and Water">
       </div>
-      <p class="media-caption">[ Replace with screenshot or short clip of the generated world ]</p>
+      <p class="media-note">Each biome gets its own entry here: how densely resources spawn per tile, how long regrowth takes, and its own spawn and decoration tables. Water's regrowth interval is set to 300 seconds against 1.0 for the rest — its "resource" is really the occasional fish node, not something that needs to come back quickly.</p>
+    </div>
+
+    <div class="media-block">
+      <div class="media-note-title">One Actor Per Region</div>
+      <div class="media-image">
+        <img src="../assets/images/GeneratedBiomeActors.png" alt="The World Outliner filtered to BiomeRegion actors, showing 4 of 29 total, with the Details panel for BiomeRegion_Plains showing Biome Type Plains, Tile Count 12463, Resource Cap 25">
+      </div>
+      <p class="media-note">This is what the flood fill actually produces — real actors in the World Outliner, one per connected region, created the moment the world generates. <code>BiomeRegion_Plains</code>'s own details panel shows exactly what it knows about itself: its biome type, and the stats it derives from its own tile footprint.</p>
     </div>
 
     <details>
@@ -149,25 +183,26 @@ TArray&lt;bool&gt; Visited; Visited.SetNumZeroed(Tiles.Num());
     <div class="section-eyebrow">03 · Rendering</div>
     <h2 class="section-heading">Materials That Don't Show the Grid</h2>
 
-    <p>The first version of the floor used vertex colors — each tile colored by its biome type. It was fast to implement and immediately obvious it was wrong. Every tile was a visible square. Water looked like hundreds of individual puddles.</p>
-
-    <div class="pull-quote">
-      "Water looked like hundreds of individual puddles. Each one perfectly grid-aligned."
-    </div>
+    <p>The first version of the floor used vertex colors — each tile colored by its biome type. It was fast to implement and immediately obvious it was wrong. Water looked like hundreds of individual puddles.</p>
 
     <p>The fix was two things working together. First: instead of one mesh section with all tiles sharing a material, the floor is split into one section per biome type. Each section gets its own material — a water material, a grass material, a rock material. You can author those however you like in the editor.</p>
 
     <p>Second: world-space UV coordinates. With per-tile UVs (0→1 per tile), the material texture restarts at every tile boundary, which is what makes the grid visible. With world-space UVs, coordinates are derived from the vertex's actual position divided by a configurable scale. The UVs flow continuously across the entire region. A water material now samples coordinates as if the ocean is one surface. No tile edges appear in the output. A single <code>FloorUVScale</code> parameter on the grid actor controls how large the texture appears relative to the tiles.</p>
 
     <div class="media-block">
-      <div class="media-placeholder wide">
-        <div class="ph-icon">🎨</div>
-        <div class="ph-label">
-          <strong>Before / After</strong>
-          Vertex colors (blocky, grid visible) vs. per-biome materials with world-space UVs (seamless)
-        </div>
+      <div class="media-note-title">Before: Per-Tile UVs</div>
+      <div class="media-image">
+        <img src="../assets/images/BeforeTiles.png" alt="The lake and river with per-tile UVs, showing the water texture repeating identically on every tile in a visible grid pattern">
       </div>
-      <p class="media-caption">[ Replace with before/after comparison screenshot ]</p>
+      <p class="media-note">Every tile samples the same 0→1 texture range, so the water material repeats identically on every single tile. The pattern lines up perfectly at every seam — which is exactly the problem. That perfect repetition is what reads as a grid.</p>
+    </div>
+
+    <div class="media-block">
+      <div class="media-note-title">After: World-Space UVs</div>
+      <div class="media-image">
+        <img src="../assets/images/AfterTiles.png" alt="The same lake and river with world-space UVs, showing the water texture flowing continuously across tiles with no repeating pattern or visible seams">
+      </div>
+      <p class="media-note">Same lake, same material, coordinates derived from world position instead of per-tile. The ripples and foam patches now span multiple tiles at irregular sizes, because the texture is being sampled as one continuous surface rather than restarted at every boundary.</p>
     </div>
 
     <details>
@@ -204,14 +239,33 @@ UVs.Add(FVector2D(L / UVDivisor, T / UVDivisor));</pre>
     <p>One checkbox per decoration entry controls whether instances generate collision. Trees and boulders block movement; grass and flowers don't. This keeps physics overhead minimal without needing separate mesh variants.</p>
 
     <div class="media-block">
-      <div class="media-placeholder tall">
-        <div class="ph-icon">🌲</div>
-        <div class="ph-label">
-          <strong>Decorated World</strong>
-          The world after running Generate Decorations — trees, rocks, and ground cover placed per biome
-        </div>
+      <div class="media-note-title">The Decoration Table</div>
+      <div class="media-image">
+        <img src="../assets/images/BiomeConfigResourceDecorationtable.png" alt="The Forest biome's decoration table, listing mesh entries like SM_BirchTreeAdultA and SM_GenericTreeB, each with its own Density, Scale Range, Random Yaw, Position Jitter, and Enable Collision settings">
       </div>
-      <p class="media-caption">[ Replace with screenshot of the fully decorated world ]</p>
+      <p class="media-note">This is the table that drives everything below — one entry per mesh or Blueprint actor, each with its own density, scale range, random yaw, position jitter, and collision toggle. Forest alone has four of these; a birch and a generic tree at low density, plus entries for whatever else fills out the canopy.</p>
+    </div>
+
+    <div class="media-block">
+      <div class="media-note-title">Placed Per Region</div>
+      <div class="media-image">
+        <img src="../assets/images/SpawnedAssets_1.png" alt="Top-down view of the generated world with trees lining the forest edges, rocks scattered across the mountain corner, and the lake and river left bare">
+      </div>
+      <p class="media-note">Top-down, the same map from the World Authoring section — trees along the forest border, rocks across the mountain corner, the lake and river left alone since water's table is mostly empty. Each biome only ever spawns from its own table.</p>
+    </div>
+
+    <div class="media-block">
+      <div class="media-image">
+        <img src="../assets/images/SpawnedAssets_2.png" alt="Angled view of the plains showing scattered grass clumps at low density, with a tree line along one edge and boulders along another">
+      </div>
+      <p class="media-note">Closer in, the plains aren't empty either — a low-density grass entry gives the open ground some texture without competing visually with the forest and mountain edges framing it.</p>
+    </div>
+
+    <div class="media-block">
+      <div class="media-image">
+        <img src="../assets/images/SpawnedAssets_3.png" alt="Ground-level view inside the forest, showing dense tree cover along the border with the lake and grass visible through the gaps">
+      </div>
+      <p class="media-note">And from ground level inside the tree line: the density and scale range settings from the table above are what turn a flat border into something that reads as an actual forest edge rather than a row of identical props.</p>
     </div>
 
     <details>
