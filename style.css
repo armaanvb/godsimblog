@@ -616,6 +616,14 @@ details > summary:focus-visible { outline: 2px solid var(--teal); outline-offset
   text-decoration: none;
 }
 
+.footer-copyright {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  margin-top: 1.25rem;
+}
+
 .footer-link:hover { color: var(--teal); }
 
 /* ── Index page ──────────────────────────────────────────────────────── */
